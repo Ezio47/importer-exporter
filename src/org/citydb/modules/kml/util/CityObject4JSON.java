@@ -37,7 +37,12 @@ public class CityObject4JSON {
 
 	private int tileRow = 0;
 	private int tileColumn = 0;
-
+	
+	private double x;
+	private double y;
+	private double z;
+	private long path;
+	
 	public CityObject4JSON (String gmlId) {
 		this.gmlId = gmlId;
 	}
@@ -47,7 +52,7 @@ public class CityObject4JSON {
 
 		return "\t\"" + gmlId + "\": {" +
 				"\n\t\"envelope\": [" + envelopeXmin + ", " + envelopeYmin + ", " + envelopeXmax + ", " + envelopeYmax +
-				"],\n\t\"tile\": [" + tileRow + ", " + tileColumn + "]}";
+				"],\n\t\"tile\": [" + tileRow + ", " + tileColumn + "], \"x\": " + x + " ,\"y\": " + y + " ,\"z\": " + z + " ,\"path\": \"" + path + "\" }";
 		/*
 		return "\n\t\"envelope\": [" + envelopeXmin + ", " + envelopeYmin + ", " + envelopeXmax + ", " + envelopeYmax +
 		   	   "],\n\t\"tile\": [" + tileRow + ", " + tileColumn + "]}";
@@ -72,7 +77,7 @@ public class CityObject4JSON {
 	}
 	 */
 
-	public void setEnvelope (double[] ordinatesArray) {
+	public void setEnvelope(double[] ordinatesArray) {
 		if (ordinatesArray == null) return;
 		envelopeXmin = ordinatesArray[0];
 		envelopeYmin = ordinatesArray[1];
@@ -127,6 +132,39 @@ public class CityObject4JSON {
 	public int getTileColumn() {
 		return tileColumn;
 	}
+	
+	public double getX() {
+		return x;
+	}
+
+	public void setX(double x) {
+		this.x = x;
+	}
+
+	public double getY() {
+		return y;
+	}
+
+	public void setY(double y) {
+		this.y = y;
+	}
+
+	public double getZ() {
+		return z;
+	}
+
+	public void setZ(double z) {
+		this.z = z;
+	}
+
+	public long getPath() {
+		return path;
+	}
+
+	public void setPath(long path) {
+		this.path = path;
+	}
+	
 	/*
 	public String getGmlId() {
 		return gmlId;

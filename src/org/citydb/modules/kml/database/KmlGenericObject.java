@@ -288,7 +288,7 @@ public abstract class KmlGenericObject {
 		return zOffset;
 	}
 
-	protected Point3d getLocation() {
+	public Point3d getLocation() {
 		return location;
 	}
 

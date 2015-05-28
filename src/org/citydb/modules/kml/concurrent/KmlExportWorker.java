@@ -282,7 +282,7 @@ public class KmlExportWorker extends Worker<KmlSplittingResult> {
 				if (objectGroupCounter.get(cityObjectType) != 0) {  // group is not empty
 					KmlGenericObject currentObjectGroup = objectGroup.get(cityObjectType);
 					if (currentObjectGroup == null || currentObjectGroup.getGmlId() == null) continue;
-					sendGroupToFile(currentObjectGroup);
+					sendGroupToFile(currentObjectGroup, work);
 					currentObjectGroup = null;
 					objectGroup.put(cityObjectType, currentObjectGroup);
 					objectGroupCounter.put(cityObjectType, 0);
@@ -505,7 +505,7 @@ public class KmlExportWorker extends Worker<KmlSplittingResult> {
 
 				objectGroupCounter.put(featureClass, objectGroupCounter.get(featureClass).intValue() + 1);
 				if (objectGroupCounter.get(featureClass).intValue() == objectGroupSize.get(featureClass).intValue()) {
-					sendGroupToFile(currentObjectGroup);
+					sendGroupToFile(currentObjectGroup, work);
 					currentObjectGroup = null;
 					objectGroup.put(featureClass, currentObjectGroup);
 					objectGroupCounter.put(featureClass, 0);
@@ -517,7 +517,7 @@ public class KmlExportWorker extends Worker<KmlSplittingResult> {
 		}
 	}
 
-	private void sendGroupToFile(KmlGenericObject objectGroup) {
+	private void sendGroupToFile(KmlGenericObject objectGroup, KmlSplittingResult work) {
 		try {
 			double imageScaleFactor = 1;
 			ColladaOptions colladaOptions = objectGroup.getColladaOptions();
@@ -544,6 +544,12 @@ public class KmlExportWorker extends Worker<KmlSplittingResult> {
 			colladaBundle.setPlacemark(objectGroup.createPlacemarkForColladaModel());
 			colladaBundle.setGmlId(objectGroup.getGmlId());
 			colladaBundle.setId(objectGroup.getId());
+			
+			// fill json details
+			work.getJson().setPath(objectGroup.getId());
+			work.getJson().setX(objectGroup.getLocation().getX());			
+			work.getJson().setZ(objectGroup.getLocation().getZ());
+			work.getJson().setY(objectGroup.getLocation().getY());
 
 			kmlExporterManager.print(colladaBundle,
 					objectGroup.getId(),					
