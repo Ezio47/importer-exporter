@@ -519,22 +519,13 @@ public class KmlExportWorker extends Worker<KmlSplittingResult> {
 
 	private void sendGroupToFile(KmlGenericObject objectGroup, KmlSplittingResult work) {
 		try {
-			double imageScaleFactor = 1;
 			ColladaOptions colladaOptions = objectGroup.getColladaOptions();
 			if (colladaOptions.isGenerateTextureAtlases()) {
-				//				eventDispatcher.triggerEvent(new StatusDialogMessage(Internal.I18N.getString("kmlExport.dialog.creatingAtlases")));
-				if (colladaOptions.isScaleImages()) {
-					imageScaleFactor = colladaOptions.getImageScaleFactor();
-				}
 				objectGroup.createTextureAtlas(colladaOptions.getPackingAlgorithm(),
-						imageScaleFactor,
 						colladaOptions.isTextureAtlasPots());
 			}
 			else if (colladaOptions.isScaleImages()) {
-				imageScaleFactor = colladaOptions.getImageScaleFactor();
-				if (imageScaleFactor < 1) {
-					objectGroup.resizeAllImagesByFactor(imageScaleFactor);
-				}
+				objectGroup.resizeAllImagesByFactor();
 			}
 
 			ColladaBundle colladaBundle = new ColladaBundle();

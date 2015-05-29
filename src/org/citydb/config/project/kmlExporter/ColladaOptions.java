@@ -54,7 +54,7 @@ public class ColladaOptions {
 		packingAlgorithm = 5; // TextureAtlasGenerator.TPIM
 		textureAtlasPots = true;
 		scaleImages = false;
-		imageScaleFactor = 1.0;
+		imageScaleFactor = 0.1;
 		groupObjects = false;
 		groupSize = 1;
 	}

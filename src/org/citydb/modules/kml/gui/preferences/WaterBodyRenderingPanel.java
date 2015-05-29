@@ -57,6 +57,7 @@ import org.citydb.config.project.kmlExporter.ColladaOptions;
 import org.citydb.config.project.kmlExporter.DisplayForm;
 import org.citydb.gui.factory.PopupMenuDecorator;
 import org.citydb.gui.preferences.AbstractPreferencesComponent;
+import org.citydb.modules.kml.util.TextureImageScaler;
 import org.citydb.textureAtlas.TextureAtlasCreator;
 import org.citydb.util.gui.GuiUtil;
 
@@ -763,8 +764,10 @@ public class WaterBodyRenderingPanel extends AbstractPreferencesComponent {
 		colladaOptions.setScaleImages(scaleTexImagesCheckbox.isSelected());
 		try {
 			colladaOptions.setImageScaleFactor(Double.parseDouble(scaleFactorText.getText().trim()));
-			if (colladaOptions.getImageScaleFactor() <= 0 || colladaOptions.getImageScaleFactor() > 1) {
-				colladaOptions.setImageScaleFactor(1);
+			if (colladaOptions.getImageScaleFactor() <= TextureImageScaler.MINIMUM_SCALE_FACTOR 
+					|| colladaOptions.getImageScaleFactor() >= TextureImageScaler.MAXIMUM_SCALE_FACTOR) {
+				scaleFactorText.setText("0");
+				colladaOptions.setImageScaleFactor(0);
 			}
 		}
 		catch (NumberFormatException nfe) {}
@@ -936,7 +939,7 @@ public class WaterBodyRenderingPanel extends AbstractPreferencesComponent {
 		colladaOptions.setPackingAlgorithm(TextureAtlasCreator.BASIC); 
 
 		colladaOptions.setScaleImages(false);
-		colladaOptions.setImageScaleFactor(1);
+		colladaOptions.setImageScaleFactor(TextureImageScaler.DEFAULT_SCALE_FACTOR);
 
 		colladaOptions.setGroupObjects(false);
 		colladaOptions.setGroupSize(1);

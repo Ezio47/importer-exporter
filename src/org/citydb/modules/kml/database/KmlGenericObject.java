@@ -26,10 +26,6 @@
  */
 package org.citydb.modules.kml.database;
 
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
-import java.awt.Transparency;
-import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
@@ -88,7 +84,9 @@ import org.citydb.modules.common.event.CounterEvent;
 import org.citydb.modules.common.event.CounterType;
 import org.citydb.modules.common.event.GeometryCounterEvent;
 import org.citydb.modules.kml.datatype.TypeAttributeValueEnum;
+import org.citydb.modules.kml.util.TextureImageScaler;
 import org.citydb.textureAtlas.TextureAtlasCreator;
+import org.citydb.textureAtlas.image.ImageProcessor;
 import org.citydb.textureAtlas.image.ImageReader;
 import org.citydb.textureAtlas.model.TextureImage;
 import org.citydb.textureAtlas.model.TextureImagesInfo;
@@ -153,6 +151,7 @@ public abstract class KmlGenericObject {
 	private HashMap<Object, String> texImageUris = new HashMap<Object, String>();
 	// key is imageUri
 	private HashMap<String, TextureImage> texImages = new HashMap<String, TextureImage>();
+	private HashMap<String, Double> texScaleFactors = new HashMap<String, Double>();
 	// for images in unusual formats or wrapping textures. Most times it will be null.
 	// key is imageUri
 	private HashMap<String, Long> unsupportedTexImageIds = null;
@@ -191,6 +190,7 @@ public abstract class KmlGenericObject {
 
 	private SimpleDateFormat dateFormatter;
 	protected final ImageReader imageReader;
+	private TextureImageScaler texImageScaler;
 
 	protected KmlGenericObject(Connection connection,
 			KmlExporterManager kmlExporterManager,
@@ -226,6 +226,9 @@ public abstract class KmlGenericObject {
 		defaultX3dMaterial.setEmissiveColor(getX3dColorFromString("0.0 0.0 0.0"));
 
 		imageReader = new ImageReader();
+		
+		if (getColladaOptions().isScaleImages())
+			texImageScaler = new TextureImageScaler(getColladaOptions().getImageScaleFactor());
 	}
 
 	public abstract void read(KmlSplittingResult work);
@@ -234,7 +237,6 @@ public abstract class KmlGenericObject {
 	public abstract Balloon getBalloonSettings();
 	protected abstract List<DisplayForm> getDisplayForms();
 	protected abstract String getHighlightingQuery();
-
 
 	protected BalloonTemplateHandlerImpl getBalloonTemplateHandler() {
 		return balloonTemplateHandler;
@@ -842,6 +844,18 @@ public abstract class KmlGenericObject {
 		return surfaceDataId;
 	}
 
+	protected void addTexScaleFactor(String texImageUri, Double scaleFactor){
+		if (scaleFactor > 0.001 && scaleFactor < 1) {
+			if (texImageUri != null) {
+				if (texScaleFactors.containsKey(texImageUri)) {
+					if (texScaleFactors.get(texImageUri) < scaleFactor)
+						texScaleFactors.put(texImageUri, scaleFactor);
+				} else 
+					texScaleFactors.put(texImageUri, scaleFactor);	
+			}
+		}
+	}
+
 	protected VertexInfo setVertexInfoForXYZ(long surfaceId, double x, double y, double z){
 		vertexIdCounter = vertexIdCounter.add(BigInteger.ONE);
 		VertexInfo vertexInfo = new VertexInfo(vertexIdCounter, x, y, z);
@@ -994,21 +1008,22 @@ public abstract class KmlGenericObject {
 	}
 
 
-	public void createTextureAtlas(int packingAlgorithm, double imageScaleFactor, boolean pots) throws SQLException, IOException {
+	public void createTextureAtlas(int packingAlgorithm, boolean pots) throws SQLException, IOException {
 
 		if (texImages.size() < 2) {
 			// building has not enough textures or they are in an unknown image format 
 			return;
 		}
 
-		useExternalTAGenerator(packingAlgorithm, imageScaleFactor, pots);
+		useExternalTAGenerator(packingAlgorithm, pots);
 	}
 
-	private void useExternalTAGenerator(int packingAlgorithm, double scaleFactor, boolean pots) throws SQLException, IOException {
+	private void useExternalTAGenerator(int packingAlgorithm, boolean pots) throws SQLException, IOException {
 		TextureAtlasCreator taCreator = new TextureAtlasCreator();
 		TextureImagesInfo tiInfo = new TextureImagesInfo();
 		tiInfo.setTexImageURIs(texImageUris);
 		tiInfo.setTexImages(texImages);
+		tiInfo.setTexScaleFactors(texScaleFactors);
 
 		// texture coordinates
 		HashMap<Object, String> tiInfoCoords = new HashMap<Object, String>();
@@ -1034,9 +1049,7 @@ public abstract class KmlGenericObject {
 		} 
 
 		tiInfo.setTexCoordinates(tiInfoCoords);
-
 		taCreator.setUsePOTS(pots);
-		taCreator.setScaleFactor(scaleFactor);
 
 		// create texture atlases
 		taCreator.convert(tiInfo, packingAlgorithm);
@@ -1058,7 +1071,7 @@ public abstract class KmlGenericObject {
 		} 
 	}
 
-	public void resizeAllImagesByFactor (double factor) throws SQLException, IOException {
+	public void resizeAllImagesByFactor() throws SQLException, IOException {
 		if (texImages.size() == 0) { // building has no textures at all
 			return;
 		}
@@ -1067,93 +1080,12 @@ public abstract class KmlGenericObject {
 		Iterator<String> iterator = keySet.iterator();
 		while (iterator.hasNext()) {
 			String imageName = iterator.next();
-			BufferedImage imageToResize = texImages.get(imageName).getBufferedImage();
-			if (imageToResize.getWidth()*factor < 1 || imageToResize.getHeight()*factor < 1) {
-				continue;
-			}
-			BufferedImage resizedImage = getScaledInstance(imageToResize,
-					(int)(imageToResize.getWidth()*factor),
-					(int)(imageToResize.getHeight()*factor),
-					RenderingHints.VALUE_INTERPOLATION_BILINEAR,
-					true);
-			texImages.put(imageName, new TextureImage(resizedImage));
+			TextureImage texImage = texImages.get(imageName);
+			Double scaleFactor = texScaleFactors.get(imageName);
+			
+			if (scaleFactor != null &&  scaleFactor < 1)
+				texImage.setImage(ImageProcessor.rescale(texImage.getBufferedImage(), scaleFactor));
 		}
-
-	}
-
-
-	/**
-	 * Convenience method that returns a scaled instance of the
-	 * provided {@code BufferedImage}.
-	 *
-	 * @param img the original image to be scaled
-	 * @param targetWidth the desired width of the scaled instance,
-	 *    in pixels
-	 * @param targetHeight the desired height of the scaled instance,
-	 *    in pixels
-	 * @param hint one of the rendering hints that corresponds to
-	 *    {@code RenderingHints.KEY_INTERPOLATION} (e.g.
-	 *    {@code RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR},
-	 *    {@code RenderingHints.VALUE_INTERPOLATION_BILINEAR},
-	 *    {@code RenderingHints.VALUE_INTERPOLATION_BICUBIC})
-	 * @param higherQuality if true, this method will use a multi-step
-	 *    scaling technique that provides higher quality than the usual
-	 *    one-step technique (only useful in downscaling cases, where
-	 *    {@code targetWidth} or {@code targetHeight} is
-	 *    smaller than the original dimensions, and generally only when
-	 *    the {@code BILINEAR} hint is specified)
-	 * @return a scaled version of the original {@code BufferedImage}
-	 */
-	private BufferedImage getScaledInstance(BufferedImage img,
-			int targetWidth,
-			int targetHeight,
-			Object hint,
-			boolean higherQuality) {
-
-		int type = (img.getTransparency() == Transparency.OPAQUE) ?
-				BufferedImage.TYPE_INT_RGB : BufferedImage.TYPE_INT_ARGB;
-		BufferedImage ret = (BufferedImage)img;
-		int w, h;
-		if (higherQuality) {
-			// Use multi-step technique: start with original size, then
-			// scale down in multiple passes with drawImage()
-			// until the target size is reached
-			w = img.getWidth();
-			h = img.getHeight();
-		} 
-		else {
-			// Use one-step technique: scale directly from original
-			// size to target size with a single drawImage() call
-			w = targetWidth;
-			h = targetHeight;
-		}
-
-		do {
-			if (higherQuality && w > targetWidth) {
-				w /= 2;
-				if (w < targetWidth) {
-					w = targetWidth;
-				}
-			}
-
-			if (higherQuality && h > targetHeight) {
-				h /= 2;
-				if (h < targetHeight) {
-					h = targetHeight;
-				}
-			}
-
-			BufferedImage tmp = new BufferedImage(w, h, type);
-			Graphics2D g2 = tmp.createGraphics();
-			g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, hint);
-			g2.drawImage(ret, 0, 0, w, h, null);
-			g2.dispose();
-
-			ret = tmp;
-		}
-		while (w != targetWidth || h != targetHeight);
-
-		return ret;
 	}
 
 	private String buildNameFromX3dMaterial(X3DMaterial x3dMaterial) {
@@ -1567,6 +1499,7 @@ public abstract class KmlGenericObject {
 						// from here on it is an elementary surfaceMember
 						eventDispatcher.triggerEvent(new GeometryCounterEvent(null, this));
 
+						GeometryObject surface = geometryConverterAdapter.getPolygon(buildingGeometryObj);
 						String texImageUri = null;
 						StringTokenizer texCoordsTokenized = null;
 
@@ -1586,9 +1519,10 @@ public abstract class KmlGenericObject {
 								boolean hasTexture = false;
 
 								StringBuilder sb =  new StringBuilder();
+								GeometryObject texCoordsGeometryObject = null;
 								Object texCoordsObject = rs2.getObject("texture_coordinates"); 
 								if (texCoordsObject != null){
-									GeometryObject texCoordsGeometryObject = geometryConverterAdapter.getGeometry(texCoordsObject);
+									texCoordsGeometryObject = geometryConverterAdapter.getGeometry(texCoordsObject);
 									for (int i = 0; i < texCoordsGeometryObject.getNumElements(); i++) {
 										double[] coordinates = texCoordsGeometryObject.getCoordinates(i);
 										for (double coordinate : coordinates){
@@ -1631,10 +1565,18 @@ public abstract class KmlGenericObject {
 											hasTexture = false;
 									}
 								}
-								
+
 								if (hasTexture) {
 									addTexImageUri(surfaceId, texImageUri);
 									texCoordsTokenized = new StringTokenizer(texCoords.trim(), " ");
+
+									// set pixel/meter scale factor
+									if (getColladaOptions().isScaleImages()) {
+										TextureImage texImage = texImages.get(texImageUri);
+										if (texImage != null)
+											addTexScaleFactor(texImageUri, texImageScaler.getScaleFactor(texImage, surface, texCoordsGeometryObject));
+									}
+
 								} else {
 									X3DMaterial x3dMaterial = new X3DMaterial();
 									fillX3dMaterialValues(x3dMaterial, rs2);
@@ -1648,9 +1590,7 @@ public abstract class KmlGenericObject {
 							}
 						}
 
-						GeometryObject surface = geometryConverterAdapter.getPolygon(buildingGeometryObj);
 						List<VertexInfo> vertexInfos = new ArrayList<VertexInfo>();
-
 						int ringCount = surface.getNumElements();
 						int[] vertexCount = new int[ringCount];
 
@@ -2235,6 +2175,5 @@ public abstract class KmlGenericObject {
 			super(key, value);
 		}
 	}
-
 
 }
