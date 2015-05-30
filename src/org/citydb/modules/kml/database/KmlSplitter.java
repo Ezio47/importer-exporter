@@ -159,7 +159,13 @@ public class KmlSplitter {
 					if (rs.next()) {
 						long id = rs.getLong("id");
 						CityGMLClass cityObjectType = Util.classId2cityObject(rs.getInt("objectclass_id"));
-						addWorkToQueue(id, gmlId, cityObjectType, null, 0, 0);
+						
+						GeometryObject envelope = null;
+						Object geomObj = rs.getObject("envelope");
+						if (!rs.wasNull() && geomObj != null)
+							envelope = databaseAdapter.getGeometryConverter().getEnvelope(geomObj);
+						
+						addWorkToQueue(id, gmlId, cityObjectType, envelope, 0, 0);
 					}
 				}
 				catch (SQLException sqlEx) {

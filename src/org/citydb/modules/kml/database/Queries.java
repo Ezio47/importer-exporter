@@ -84,7 +84,7 @@ public class Queries {
 			"SELECT id FROM CITYOBJECT WHERE gmlid = ?";
 
 	public static final String GET_ID_AND_OBJECTCLASS_FROM_GMLID =
-			"SELECT id, objectclass_id FROM CITYOBJECT WHERE gmlid = ?";
+			"SELECT id, objectclass_id, envelope FROM CITYOBJECT WHERE gmlid = ?";
 
 	public static final String GET_GMLID_AND_OBJECTCLASS_FROM_ID =
 			"SELECT gmlid, objectclass_id FROM CITYOBJECT WHERE id = ?";

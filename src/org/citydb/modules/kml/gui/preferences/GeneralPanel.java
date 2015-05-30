@@ -71,8 +71,9 @@ public class GeneralPanel extends AbstractPreferencesComponent {
 	private JLabel sLabel = new JLabel("s.");
 	private JFormattedTextField viewRefreshTimeText;
 	private JCheckBox writeJSONCheckbox = new JCheckBox();
+	private JCheckBox tileJSONCheckbox = new JCheckBox();
 	private JCheckBox writeJSONPCheckbox = new JCheckBox();
-	private JLabel callbackNameJSONPLabel = new JLabel("s.");
+	private JLabel callbackNameJSONPLabel = new JLabel();
 	private JTextField callbackNameJSONPText = new JTextField();
 	
 	
@@ -121,6 +122,7 @@ public class GeneralPanel extends AbstractPreferencesComponent {
 		if (viewRefreshTime != kmlExporter.getViewRefreshTime()) return true;
 
 		if (writeJSONCheckbox.isSelected() != kmlExporter.isWriteJSONFile()) return true;
+		if (tileJSONCheckbox.isSelected() != kmlExporter.isCreateOneJSONFilePerTile()) return true;
 		if (writeJSONPCheckbox.isSelected() != kmlExporter.isWriteJSONPFile()) return true;
 		if (!callbackNameJSONPText.getText().trim().equals(kmlExporter.getCallbackNameJSONP())) return true;
 
@@ -146,6 +148,7 @@ public class GeneralPanel extends AbstractPreferencesComponent {
 		showTileBordersCheckbox.setIconTextGap(10);
 		oneFilePerObjectCheckbox.setIconTextGap(10);
 		writeJSONCheckbox.setIconTextGap(10);
+		tileJSONCheckbox.setIconTextGap(10);
 		writeJSONPCheckbox.setIconTextGap(10);
 
 		generalPanel.add(kmzCheckbox, GuiUtil.setConstraints(0,0,0.0,1.0,GridBagConstraints.BOTH,0,BORDER_THICKNESS,0,0));
@@ -189,10 +192,12 @@ public class GeneralPanel extends AbstractPreferencesComponent {
 		sl.anchor = GridBagConstraints.WEST;
 		generalPanel.add(sLabel, sl);
 
+		int lmargin = (int)(tileJSONCheckbox.getPreferredSize().getWidth()) + 11;
 		generalPanel.add(writeJSONCheckbox, GuiUtil.setConstraints(0,8,0.0,1.0,GridBagConstraints.BOTH,BORDER_THICKNESS,BORDER_THICKNESS,0,0));
-		generalPanel.add(writeJSONPCheckbox, GuiUtil.setConstraints(0,9,0.0,1.0,GridBagConstraints.EAST,GridBagConstraints.NONE,0,0,0,1));
-		generalPanel.add(callbackNameJSONPLabel, GuiUtil.setConstraints(0,10,0.0,1.0,GridBagConstraints.EAST,GridBagConstraints.NONE,BORDER_THICKNESS,BORDER_THICKNESS,0,BORDER_THICKNESS));
-		generalPanel.add(callbackNameJSONPText, GuiUtil.setConstraints(1,10,1.0,0.0,GridBagConstraints.HORIZONTAL,BORDER_THICKNESS,BORDER_THICKNESS,0,BORDER_THICKNESS));
+		generalPanel.add(tileJSONCheckbox, GuiUtil.setConstraints(0,9,0.0,1.0,GridBagConstraints.WEST,GridBagConstraints.NONE,0,lmargin,0,1));
+		generalPanel.add(writeJSONPCheckbox, GuiUtil.setConstraints(0,10,0.0,1.0,GridBagConstraints.WEST,GridBagConstraints.NONE,0,lmargin,0,1));
+		generalPanel.add(callbackNameJSONPLabel, GuiUtil.setConstraints(0,11,0.0,1.0,GridBagConstraints.EAST,GridBagConstraints.NONE,BORDER_THICKNESS,BORDER_THICKNESS,0,BORDER_THICKNESS));
+		generalPanel.add(callbackNameJSONPText, GuiUtil.setConstraints(1,11,1.0,0.0,GridBagConstraints.HORIZONTAL,BORDER_THICKNESS,BORDER_THICKNESS,0,BORDER_THICKNESS));
 
 		PopupMenuDecorator.getInstance().decorate(autoTileSideLengthText, visibleFromText, viewRefreshTimeText, callbackNameJSONPText);
 
@@ -233,6 +238,7 @@ public class GeneralPanel extends AbstractPreferencesComponent {
 		viewRefreshModeLabel.setText(Language.I18N.getString("kmlExport.label.viewRefreshMode"));
 		viewRefreshTimeLabel.setText(Language.I18N.getString("kmlExport.label.viewRefreshTime"));
 		writeJSONCheckbox.setText(Language.I18N.getString("pref.kmlexport.label.writeJSONFile"));
+		tileJSONCheckbox.setText(Language.I18N.getString("pref.kmlexport.label.tileJSONFile"));
 		writeJSONPCheckbox.setText(Language.I18N.getString("pref.kmlexport.label.writeJSONPFile"));
 		callbackNameJSONPLabel.setText(Language.I18N.getString("pref.kmlexport.label.callbackNameJSONP"));
 	}
@@ -250,6 +256,7 @@ public class GeneralPanel extends AbstractPreferencesComponent {
 		viewRefreshModeComboBox.setSelectedItem(kmlExporter.getViewRefreshMode());
 		viewRefreshTimeText.setText(String.valueOf(kmlExporter.getViewRefreshTime()));
 		writeJSONCheckbox.setSelected(kmlExporter.isWriteJSONFile());
+		tileJSONCheckbox.setSelected(kmlExporter.isCreateOneJSONFilePerTile());
 		writeJSONPCheckbox.setSelected(kmlExporter.isWriteJSONPFile());
 		callbackNameJSONPText.setText(kmlExporter.getCallbackNameJSONP());
 
@@ -285,6 +292,7 @@ public class GeneralPanel extends AbstractPreferencesComponent {
 		catch (NumberFormatException nfe) {}
 
 		kmlExporter.setWriteJSONFile(writeJSONCheckbox.isSelected());
+		kmlExporter.setCreateOneJSONFilePerTile(tileJSONCheckbox.isSelected());
 		kmlExporter.setWriteJSONPFile(writeJSONPCheckbox.isSelected());
 		kmlExporter.setCallbackNameJSONP(callbackNameJSONPText.getText().trim());
 	}
@@ -301,6 +309,7 @@ public class GeneralPanel extends AbstractPreferencesComponent {
 		viewRefreshTimeText.setEnabled(oneFilePerObjectCheckbox.isSelected() && ViewRefreshModeEnumType.ON_STOP.value().equals(viewRefreshModeComboBox.getSelectedItem()));
 		sLabel.setEnabled(oneFilePerObjectCheckbox.isSelected() && ViewRefreshModeEnumType.ON_STOP.value().equals(viewRefreshModeComboBox.getSelectedItem()));
 
+		tileJSONCheckbox.setEnabled(writeJSONCheckbox.isSelected());
 		writeJSONPCheckbox.setEnabled(writeJSONCheckbox.isSelected());
 		callbackNameJSONPLabel.setEnabled(writeJSONPCheckbox.isEnabled() && writeJSONPCheckbox.isSelected());
 		callbackNameJSONPText.setEnabled(writeJSONPCheckbox.isEnabled() && writeJSONPCheckbox.isSelected());

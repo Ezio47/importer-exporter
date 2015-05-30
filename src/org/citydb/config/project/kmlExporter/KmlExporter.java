@@ -86,6 +86,7 @@ import org.citydb.config.project.resources.Resources;
 		"viewRefreshMode",
 		"viewRefreshTime",
 		"writeJSONFile",
+		"createOneJSONFilePerTile",
 		"writeJSONPFile",
 		"callbackNameJSONP",
 		"appearanceTheme",
@@ -168,6 +169,7 @@ public class KmlExporter {
 	private String viewRefreshMode;
 	private double viewRefreshTime;
 	private boolean writeJSONFile;
+	private boolean createOneJSONFilePerTile;
 	private boolean writeJSONPFile;
 	private String callbackNameJSONP;
 	private String appearanceTheme;
@@ -231,6 +233,7 @@ public class KmlExporter {
 		viewRefreshMode = "onRegion";
 		viewRefreshTime = 1;
 		writeJSONFile = false;
+		createOneJSONFilePerTile = false;
 		writeJSONPFile = false;
 		callbackNameJSONP = "";
 		setAppearanceTheme(THEME_NONE);
@@ -455,6 +458,14 @@ public class KmlExporter {
 
 	public boolean isWriteJSONFile() {
 		return writeJSONFile;
+	}
+
+	public boolean isCreateOneJSONFilePerTile() {
+		return createOneJSONFilePerTile;
+	}
+
+	public void setCreateOneJSONFilePerTile(boolean createOneJSONFilePerTile) {
+		this.createOneJSONFilePerTile = createOneJSONFilePerTile;
 	}
 
 	public void setOneFilePerObject(boolean oneFilePerObject) {

@@ -27,17 +27,13 @@
 package org.citydb.modules.kml.util;
 
 public class CityObject4JSON {
-
 	private String gmlId;
-
 	private double envelopeXmin;
 	private double envelopeXmax;
 	private double envelopeYmin;
 	private double envelopeYmax;
-
 	private int tileRow = 0;
-	private int tileColumn = 0;
-	
+	private int tileColumn = 0;	
 	private double x;
 	private double y;
 	private double z;
@@ -49,33 +45,10 @@ public class CityObject4JSON {
 
 	@Override
 	public String toString() {
-
 		return "\t\"" + gmlId + "\": {" +
 				"\n\t\"envelope\": [" + envelopeXmin + ", " + envelopeYmin + ", " + envelopeXmax + ", " + envelopeYmax +
 				"],\n\t\"tile\": [" + tileRow + ", " + tileColumn + "], \"x\": " + x + " ,\"y\": " + y + " ,\"z\": " + z + " ,\"path\": \"" + path + "\" }";
-		/*
-		return "\n\t\"envelope\": [" + envelopeXmin + ", " + envelopeYmin + ", " + envelopeXmax + ", " + envelopeYmax +
-		   	   "],\n\t\"tile\": [" + tileRow + ", " + tileColumn + "]}";
-		 */
 	}
-
-	/*
-	@Override
-	public boolean equals(Object obj) {
-
-		try {
-			CityObject4JSON cityObject4Json = (CityObject4JSON) obj;
-			return this.gmlId.equals(cityObject4Json.getGmlId());
-		}
-		catch (Exception e) {}
-		return false;
-	}
-
-	@Override
-	public int hashCode(){
-		return this.gmlId.hashCode();
-	}
-	 */
 
 	public void setEnvelope(double[] ordinatesArray) {
 		if (ordinatesArray == null) return;
@@ -164,10 +137,4 @@ public class CityObject4JSON {
 	public void setPath(long path) {
 		this.path = path;
 	}
-	
-	/*
-	public String getGmlId() {
-		return gmlId;
-	}
-	 */
 }

@@ -26,6 +26,7 @@
  */
 package org.citydb.modules.kml.controller;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -161,6 +162,7 @@ public class KmlExporter implements EventHandler {
 
 	private EnumMap<CityGMLClass, Long>featureCounterMap = new EnumMap<CityGMLClass, Long>(CityGMLClass.class);
 	private long geometryCounter;
+	boolean jsonMasterHasContent;
 
 	public KmlExporter (JAXBContext jaxbKmlContext,
 			JAXBContext jaxbColladaContext,
@@ -287,19 +289,19 @@ public class KmlExporter implements EventHandler {
 			}
 		}
 
-		// start writing JSON file if required
-		FileOutputStream jsonFileWriter = null;
-		boolean jsonHasContent = false;
+		// start writing the master JSON file if required
+		BufferedWriter jsonMasterFileWriter = null;
+		BufferedWriter jsonTileFileWriter = null;
+		boolean isCreateOneJSONFilePerTile = false;
+		jsonMasterHasContent = false;
+		
 		if (config.getProject().getKmlExporter().isWriteJSONFile()) {
 			try {
 				File jsonFile = new File(path + File.separator + fileName + ".json");
-				jsonFileWriter = new FileOutputStream(jsonFile);
-				if (config.getProject().getKmlExporter().isWriteJSONPFile())
-					jsonFileWriter.write((config.getProject().getKmlExporter().getCallbackNameJSONP() + "({\n").getBytes(CHARSET));
-				else
-					jsonFileWriter.write("{\n".getBytes(CHARSET));
+				jsonMasterFileWriter = writeJSONFileHeader(jsonFile);
+				isCreateOneJSONFilePerTile = config.getProject().getKmlExporter().isCreateOneJSONFilePerTile();
 			} catch (IOException e) {
-				Logger.getInstance().error("Failed to write JSON file header: " + e.getMessage());
+				Logger.getInstance().error("Failed to write JSON master file header: " + e.getMessage());
 				return false;
 			}
 		}
@@ -320,7 +322,7 @@ public class KmlExporter implements EventHandler {
 
 				// track exported objects
 				ExportTracker tracker = new ExportTracker();
-				
+
 				// set active tile and get tile extent in WGS84
 				GeometryObject wgs84Tile = null;
 				if (isBBoxActive && tiling.getMode() != TilingMode.NO_TILING) {
@@ -329,6 +331,16 @@ public class KmlExporter implements EventHandler {
 						wgs84Tile = convertTileToWGS84(exportFilter.getBoundingBoxFilter().getFilterState());
 					} catch (SQLException e) {
 						Logger.getInstance().error("Failed to transform tile extent to WGS84: " + e.getMessage());
+						return false;
+					}
+				}
+				
+				if (isCreateOneJSONFilePerTile) {
+					try {
+						File jsonFile = new File(path + File.separator + fileName + "_Tile_" + i + "_" + j + ".json");
+						jsonTileFileWriter = writeJSONFileHeader(jsonFile);
+					} catch (IOException e) {
+						Logger.getInstance().error("Failed to write JSON tile file header: " + e.getMessage());
 						return false;
 					}
 				}
@@ -433,7 +445,7 @@ public class KmlExporter implements EventHandler {
 							marshaller.marshal(kml, fragmentWriter);
 
 							if (isBBoxActive 
-									&&	tiling.getMode() != TilingMode.NO_TILING 
+									&& tiling.getMode() != TilingMode.NO_TILING 
 									&& config.getProject().getKmlExporter().getFilter().isSetComplexFilter() 
 									&& config.getProject().getKmlExporter().isShowTileBorders())
 								addBorder(wgs84Tile, null, saxWriter);
@@ -565,7 +577,7 @@ public class KmlExporter implements EventHandler {
 						kmlSplitter = null;
 					}
 				}
-				
+
 				// create reference to tile file in master file
 				if (masterFileWriter != null) {
 					try {
@@ -577,23 +589,28 @@ public class KmlExporter implements EventHandler {
 				}
 				
 				// fill JSON file after tile has been processed
-				if (jsonFileWriter != null) {
+				BufferedWriter jsonWriter = isCreateOneJSONFilePerTile ? jsonTileFileWriter : jsonMasterFileWriter;
+				if (jsonWriter != null) {
 					try {
-						Iterator<CityObject4JSON> iter = tracker.values().iterator();
-						if (iter.hasNext()) {
-							if (jsonHasContent)
-								jsonFileWriter.write(",\n".getBytes(CHARSET));
-							else
-								jsonHasContent = true;
-						}
+						writeJSONTileContent(jsonWriter, tracker, isCreateOneJSONFilePerTile);
 						
-						while (iter.hasNext()) {
-							jsonFileWriter.write(iter.next().toString().getBytes(CHARSET));
-							if (iter.hasNext())
-								jsonFileWriter.write(",\n".getBytes(CHARSET));
+						// close tile file
+						if (isCreateOneJSONFilePerTile) {
+							writeJSONFileFooter(jsonWriter);
+							jsonTileFileWriter.close();
 						}
 					} catch (IOException ioe) {
-						Logger.getInstance().error("I/O error: " + ioe.getMessage());
+						Logger.getInstance().error("I/O error while writing JSON file: " + ioe.getMessage());
+						return false;
+					}
+				}
+				
+				// create reference to JSON tile file in master file 
+				if (jsonMasterFileWriter != null && isCreateOneJSONFilePerTile) {
+					try {
+						writeJSONTileReference(jsonMasterFileWriter, fileName, i, j, wgs84Tile != null ? wgs84Tile : wgs84Extent, tracker);
+					} catch (IOException ioe) {
+						Logger.getInstance().error("I/O error while writing JSON file: " + ioe.getMessage());
 						return false;
 					}
 				}
@@ -612,16 +629,12 @@ public class KmlExporter implements EventHandler {
 		}
 
 		// close JSON file
-		if (jsonFileWriter != null) {
+		if (jsonMasterFileWriter != null) {
 			try {
-				if (config.getProject().getKmlExporter().isWriteJSONPFile())
-					jsonFileWriter.write("\n});\n".getBytes(CHARSET));
-				else
-					jsonFileWriter.write("\n}\n".getBytes(CHARSET));
-				
-				jsonFileWriter.close();
+				writeJSONFileFooter(jsonMasterFileWriter);
+				jsonMasterFileWriter.close();
 			} catch (IOException ioe) {
-				Logger.getInstance().error("Failed to close JSON file: " + ioe.getMessage());
+				Logger.getInstance().error("Failed to close master JSON file: " + ioe.getMessage());
 				return false;
 			}
 		}
@@ -873,6 +886,69 @@ public class KmlExporter implements EventHandler {
 
 		marshaller.marshal(kml, fragmentWriter);
 		saxWriter.flush();
+	}
+	
+	private BufferedWriter writeJSONFileHeader(File file) throws IOException {
+		FileOutputStream fos = new FileOutputStream(file);
+		BufferedWriter jsonWriter = new BufferedWriter(new OutputStreamWriter(fos, CHARSET));
+
+		if (config.getProject().getKmlExporter().isWriteJSONPFile())
+			jsonWriter.write(config.getProject().getKmlExporter().getCallbackNameJSONP() + "({\n");
+		else
+			jsonWriter.write("{\n");
+
+		return jsonWriter;
+	}
+
+	private void writeJSONFileFooter(BufferedWriter jsonWriter) throws IOException {
+		if (config.getProject().getKmlExporter().isWriteJSONPFile())
+			jsonWriter.write("\n});\n");
+		else
+			jsonWriter.write("\n}\n");
+	}
+	
+	private void writeJSONTileContent(BufferedWriter jsonWriter, ExportTracker tracker, boolean isCreateOneJSONFilePerTile) throws IOException {
+		Iterator<CityObject4JSON> iter = tracker.values().iterator();
+		if (!isCreateOneJSONFilePerTile && iter.hasNext()) {
+			if (jsonMasterHasContent)
+				jsonWriter.write(",\n");
+			else
+				jsonMasterHasContent = true;
+		}
+
+		while (iter.hasNext()) {
+			jsonWriter.write(iter.next().toString());
+			if (iter.hasNext())
+				jsonWriter.write(",\n");
+		}
+	}
+	
+	private void writeJSONTileReference(BufferedWriter jsonWriter, String tileName, int row, int column, GeometryObject tileExtent, ExportTracker tracker) throws IOException {
+		if (jsonMasterHasContent)
+			jsonWriter.write(",\n");
+		else
+			jsonMasterHasContent = true;
+		
+		// get envelope of tile												
+		double[] envelope = new double[]{Double.MAX_VALUE, Double.MAX_VALUE, -Double.MAX_VALUE, -Double.MAX_VALUE};
+		if (tileExtent != null) {
+			double[] coords = tileExtent.getCoordinates(0);
+			envelope[0] = coords[0];
+			envelope[1] = coords[1];
+			envelope[2] = coords[4];
+			envelope[3] = coords[5];
+		} else {
+			for (CityObject4JSON jsonObject : tracker.values()) {
+				if (jsonObject.getEnvelopeXmin() < envelope[0]) envelope[0] = jsonObject.getEnvelopeXmin();
+				if (jsonObject.getEnvelopeYmin() < envelope[1]) envelope[1] = jsonObject.getEnvelopeYmin();
+				if (jsonObject.getEnvelopeXmax() > envelope[2]) envelope[2] = jsonObject.getEnvelopeXmax();
+				if (jsonObject.getEnvelopeYmax() > envelope[3]) envelope[3] = jsonObject.getEnvelopeYmax();
+			}
+		}
+		
+		jsonWriter.write("\t\"tile_" + row + "_" + column + "\": {\n");
+		jsonWriter.write("\t\"envelope\": [" + envelope[0] + ", " + envelope[1] + ", " + envelope[2] + ", " + envelope[3] + "],\n");
+		jsonWriter.write("\t\"tile\": [" + row + ", " + column + "], \"link\": \"" + tileName + "_Tile_" + row + "_" + column + ".json\" }");
 	}
 
 	private void addStyle(DisplayForm currentDisplayForm, CityGMLClass featureClass, SAXWriter saxWriter) throws JAXBException {
