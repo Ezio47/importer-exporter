@@ -228,7 +228,7 @@ public abstract class KmlGenericObject {
 		defaultX3dMaterial.setEmissiveColor(getX3dColorFromString("0.0 0.0 0.0"));
 
 		imageReader = new ImageReader();
-		
+
 		if (getColladaOptions().isScaleImages())
 			texImageScaler = new TextureImageScaler(getColladaOptions().getImageScaleFactor());
 	}
@@ -430,8 +430,9 @@ public abstract class KmlGenericObject {
 
 		Mesh mesh = colladaFactory.createMesh();
 		mesh.getSource().add(positionSource);
-		mesh.getSource().add(normalSource);
-		mesh.setVertices(vertices);
+		mesh.setVertices(vertices);	
+		if (getColladaOptions().isGenerateSurfaceNormals())
+			mesh.getSource().add(normalSource);
 		if (!config.getProject().getKmlExporter().getAppearanceTheme().equals(KmlExporter.THEME_NONE))
 			mesh.getSource().add(texCoordsSource);
 
@@ -461,12 +462,13 @@ public abstract class KmlGenericObject {
 		Set<Long> keySet = surfaceInfos.keySet();
 		Iterator<Long> iterator = keySet.iterator();
 		int normalIndexOffset = 0;
-		
+
 		while (iterator.hasNext()) {
 			Long surfaceId = iterator.next();
 			String texImageName = texImageUris.get(surfaceId);
 			X3DMaterial x3dMaterial = getX3dMaterial(surfaceId);
 			boolean surfaceTextured = true;
+
 			if (texImageName == null) {
 				surfaceTextured = false;
 				texImageName = (x3dMaterial != null) ?
@@ -621,24 +623,29 @@ public abstract class KmlGenericObject {
 				libraryEffects.getEffect().add(effect);
 
 				// --------------------------- triangles ---------------------------
+				int offset = 0;
+
 				triangles = colladaFactory.createTriangles();
 				triangles.setMaterial(replaceExtensionWithSuffix(texImageName, "_tri"));
 				InputLocalOffset inputV = colladaFactory.createInputLocalOffset();
 				inputV.setSemantic("VERTEX"); // ColladaConstants.INPUT_SEMANTIC_VERTEX
 				inputV.setSource("#" + vertices.getId());
-				inputV.setOffset(BigInteger.ZERO);
+				inputV.setOffset(BigInteger.valueOf(offset++));
 				triangles.getInput().add(inputV);
-				InputLocalOffset inputN = colladaFactory.createInputLocalOffset();
-				inputN.setSemantic("NORMAL"); // ColladaConstants.INPUT_NORMAL_VERTEX
-				inputN.setSource("#" + normalSource.getId());
-				inputN.setOffset(BigInteger.ONE);
-				triangles.getInput().add(inputN);
-				
+
+				if (getColladaOptions().isGenerateSurfaceNormals()) {
+					InputLocalOffset inputN = colladaFactory.createInputLocalOffset();
+					inputN.setSemantic("NORMAL"); // ColladaConstants.INPUT_NORMAL_VERTEX
+					inputN.setSource("#" + normalSource.getId());
+					inputN.setOffset(BigInteger.valueOf(offset++));
+					triangles.getInput().add(inputN);
+				}				
+
 				if (surfaceTextured) {
 					InputLocalOffset inputT = colladaFactory.createInputLocalOffset();
 					inputT.setSemantic("TEXCOORD"); // ColladaConstants.INPUT_SEMANTIC_TEXCOORD
 					inputT.setSource("#" + texCoordsSource.getId());
-					inputT.setOffset(BigInteger.valueOf(2));
+					inputT.setOffset(BigInteger.valueOf(offset++));
 					triangles.getInput().add(inputT);
 				}
 
@@ -673,7 +680,7 @@ public abstract class KmlGenericObject {
 			int[] indexes = ginfo.getCoordinateIndices();
 			int[] normalIndexes = ginfo.getNormalIndices();			
 			Vector3f[] normals = ginfo.getNormals();
-			
+
 			// fix a reversed orientation of the triangulated surface 
 			byte[] edges = {0, 1, 1, 2, 2, 0};			
 			boolean hasFound = false;
@@ -712,7 +719,9 @@ public abstract class KmlGenericObject {
 			for (int i = 0; i < indexes.length; i++) {				
 				VertexInfo vertexInfo = vertexInfos.get(indexes[i]);
 				triangles.getP().add(vertexInfo.getVertexId());
-				triangles.getP().add(BigInteger.valueOf(normalIndexes[i] + normalIndexOffset));
+
+				if (getColladaOptions().isGenerateSurfaceNormals())
+					triangles.getP().add(BigInteger.valueOf(normalIndexes[i] + normalIndexOffset));
 
 				if (surfaceTextured) {
 					TexCoords texCoords = vertexInfo.getTexCoords(surfaceId);
@@ -738,7 +747,7 @@ public abstract class KmlGenericObject {
 					}
 				}
 			}			
-			
+
 			for (Vector3f normal : normals) {
 				normalValues.add(reducePrecisionForXorY((double)normal.x));
 				normalValues.add(reducePrecisionForXorY((double)normal.y));
@@ -1125,7 +1134,7 @@ public abstract class KmlGenericObject {
 			String imageName = iterator.next();
 			TextureImage texImage = texImages.get(imageName);
 			Double scaleFactor = texScaleFactors.get(imageName);
-			
+
 			if (scaleFactor != null &&  scaleFactor < 1)
 				texImage.setImage(ImageProcessor.rescale(texImage.getBufferedImage(), scaleFactor));
 		}

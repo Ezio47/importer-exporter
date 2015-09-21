@@ -30,6 +30,7 @@ import javax.xml.bind.annotation.XmlType;
 
 @XmlType(name="ColladaOptions", propOrder={
 		"ignoreSurfaceOrientation",
+		"generateSurfaceNormals",
 		"generateTextureAtlases",
 		"packingAlgorithm",
 		"textureAtlasPots",
@@ -40,6 +41,7 @@ import javax.xml.bind.annotation.XmlType;
 })
 public class ColladaOptions {
 	private boolean ignoreSurfaceOrientation;
+	private boolean generateSurfaceNormals;
 	private boolean generateTextureAtlases;
 	private int packingAlgorithm;
 	private boolean textureAtlasPots;
@@ -50,6 +52,7 @@ public class ColladaOptions {
 
 	public ColladaOptions() {
 		ignoreSurfaceOrientation = false;
+		generateSurfaceNormals = false;
 		generateTextureAtlases = true;
 		packingAlgorithm = 5; // TextureAtlasGenerator.TPIM
 		textureAtlasPots = true;
@@ -65,6 +68,14 @@ public class ColladaOptions {
 
 	public boolean isIgnoreSurfaceOrientation() {
 		return ignoreSurfaceOrientation;
+	}
+
+	public void setGenerateSurfaceNormals(boolean generateSurfaceNormals) {
+		this.generateSurfaceNormals = generateSurfaceNormals;
+	}
+
+	public boolean isGenerateSurfaceNormals() {
+		return generateSurfaceNormals;
 	}
 
 	public void setGenerateTextureAtlases(boolean generateTextureAtlases) {
