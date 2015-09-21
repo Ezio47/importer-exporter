@@ -160,7 +160,8 @@ public class KmlExporter implements EventHandler {
 	private int rows = 1;
 	private int columns = 1;
 
-	private EnumMap<CityGMLClass, Long>featureCounterMap = new EnumMap<CityGMLClass, Long>(CityGMLClass.class);
+	private EnumMap<CityGMLClass, Long> featureCounterMap = new EnumMap<CityGMLClass, Long>(CityGMLClass.class);
+	private EnumMap<CityGMLClass, Long> totalFeatureCounterMap = new EnumMap<CityGMLClass, Long>(CityGMLClass.class);
 	private long geometryCounter;
 	boolean jsonMasterHasContent;
 
@@ -354,7 +355,6 @@ public class KmlExporter implements EventHandler {
 						deleteFolder(lastTempFolder); // just in case
 
 					File file = null;
-					OutputStreamWriter fileWriter = null;
 					ZipOutputStream zipOut = null;
 
 					try {
@@ -364,11 +364,13 @@ public class KmlExporter implements EventHandler {
 						} else
 							file = new File(path + File.separator + fileName + "_" + displayForm.getName() + fileExtension);
 
+						eventDispatcher.triggerEvent(new StatusDialogMessage(Language.I18N.getString("kmlExport.dialog.writingToFile"), this));
 						eventDispatcher.triggerEvent(new StatusDialogTitle(file.getName(), this));
 
 						// open file for writing
 						try {
-							if (config.getProject().getKmlExporter().isExportAsKmz()) { 
+							OutputStreamWriter fileWriter = null;
+							if (config.getProject().getKmlExporter().isExportAsKmz()) {
 								zipOut = new ZipOutputStream(new FileOutputStream(file));
 								ZipEntry zipEntry = new ZipEntry("doc.kml");
 								zipOut.putNextEntry(zipEntry);
@@ -476,10 +478,24 @@ public class KmlExporter implements EventHandler {
 							return false;
 						}
 
+						// shutdown worker pools
 						try {
 							kmlWorkerPool.shutdownAndWait();
 							ioWriterPool.shutdownAndWait();
+						} catch (InterruptedException e) {
+							Logger.getInstance().error("Internal error: " + e.getMessage());
+						}
 
+						// join eventDispatcher
+						try {
+							eventDispatcher.flushEvents();
+						} catch (InterruptedException iE) {
+							Logger.getInstance().error("Internal error: " + iE.getMessage());
+							return false;
+						}
+
+						try {
+							// add styles
 							if (!featureCounterMap.isEmpty() &&
 									(!config.getProject().getKmlExporter().isOneFilePerObject() ||
 											config.getProject().getKmlExporter().getFilter().isSetSimpleFilter())) {
@@ -488,9 +504,6 @@ public class KmlExporter implements EventHandler {
 										addStyle(displayForm, type, saxWriter);
 								}
 							}
-
-						} catch (InterruptedException e) {
-							System.out.println(e.getMessage());
 						} catch (JAXBException jaxBE) {
 							Logger.getInstance().error("I/O error: " + jaxBE.getMessage());
 							return false;
@@ -505,62 +518,63 @@ public class KmlExporter implements EventHandler {
 							return false;
 						}
 
-						eventDispatcher.triggerEvent(new StatusDialogMessage(Language.I18N.getString("kmlExport.dialog.writingToFile"), this));
-
 						// flush sax writer and close file
 						try {
-							saxWriter.flush();
-							if (config.getProject().getKmlExporter().isExportAsKmz()) { 
-								zipOut.closeEntry();
+							if (!featureCounterMap.isEmpty()) {
+								saxWriter.flush();
+								if (config.getProject().getKmlExporter().isExportAsKmz()) {
+									zipOut.closeEntry();
 
-								List<File> filesToZip = new ArrayList<File>();
-								File tempFolder = new File(path, TEMP_FOLDER);
-								lastTempFolder = tempFolder;
-								int indexOfZipFilePath = tempFolder.getCanonicalPath().length() + 1;
+									List<File> filesToZip = new ArrayList<File>();
+									File tempFolder = new File(path, TEMP_FOLDER);
+									lastTempFolder = tempFolder;
+									int indexOfZipFilePath = tempFolder.getCanonicalPath().length() + 1;
 
-								if (tempFolder.exists()) { // !config.getProject().getKmlExporter().isOneFilePerObject()
-									Logger.getInstance().info("Zipping to kmz archive from temporary folder...");
-									getAllFiles(tempFolder, filesToZip);
-									for (File fileToZip : filesToZip) {
-										if (!fileToZip.isDirectory()) {
-											FileInputStream inputStream = new FileInputStream(fileToZip);
-											String zipEntryName = fileToZip.getCanonicalPath().substring(indexOfZipFilePath);
-											zipEntryName = zipEntryName.replace(File.separator, "/"); // MUST
-											ZipEntry zipEntry = new ZipEntry(zipEntryName);
-											zipOut.putNextEntry(zipEntry);
+									if (tempFolder.exists()) { // !config.getProject().getKmlExporter().isOneFilePerObject()
+										Logger.getInstance().info("Zipping to kmz archive from temporary folder...");
+										getAllFiles(tempFolder, filesToZip);
+										for (File fileToZip : filesToZip) {
+											if (!fileToZip.isDirectory()) {
+												FileInputStream inputStream = new FileInputStream(fileToZip);
+												String zipEntryName = fileToZip.getCanonicalPath().substring(indexOfZipFilePath);
+												zipEntryName = zipEntryName.replace(File.separator, "/"); // MUST
+												ZipEntry zipEntry = new ZipEntry(zipEntryName);
+												zipOut.putNextEntry(zipEntry);
 
-											byte[] bytes = new byte[64*1024]; // 64K should be enough for most
-											int length;
-											while ((length = inputStream.read(bytes)) >= 0) {
-												zipOut.write(bytes, 0, length);
+												byte[] bytes = new byte[64*1024]; // 64K should be enough for most
+												int length;
+												while ((length = inputStream.read(bytes)) >= 0) {
+													zipOut.write(bytes, 0, length);
+												}
+												inputStream.close();
+												zipOut.closeEntry();
 											}
-											inputStream.close();
-											zipOut.closeEntry();
 										}
+										Logger.getInstance().info("Removing temporary folder...");
+										deleteFolder(tempFolder);
 									}
-									Logger.getInstance().info("Removing temporary folder...");
-									deleteFolder(tempFolder);
+									zipOut.close();
 								}
-								zipOut.close();
 							}
-							fileWriter.close();
 						} catch (Exception ioe) {
 							Logger.getInstance().error("I/O error: " + ioe.getMessage());
-							try {
-								fileWriter.close();
-							} catch (Exception e) {}
 							return false;
 						}
 
-						eventDispatcher.triggerEvent(new StatusDialogMessage(" ", this));
-
-						// finally join eventDispatcher
 						try {
-							eventDispatcher.flushEvents();
-						} catch (InterruptedException iE) {
-							Logger.getInstance().error("Internal error: " + iE.getMessage());
-							return false;
+							saxWriter.close();
+						} catch (Exception e) {
+							Logger.getInstance().error("I/O error: " + e.getMessage());
 						}
+
+						// delete empty tile file if requested
+						if (isBBoxActive && featureCounterMap.isEmpty() && !config.getProject().getKmlExporter().isExportEmptyTiles()) {
+							Logger.getInstance().debug("Tile_" + exportFilter.getBoundingBoxFilter().getTileRow()
+									+ "_" + exportFilter.getBoundingBoxFilter().getTileColumn() + " is empty. Deleting file " + file.getName() + ".");
+							file.delete();
+						}
+						
+						eventDispatcher.triggerEvent(new StatusDialogMessage(Language.I18N.getString("export.dialog.finish.msg"), this));
 					}
 
 					finally {
@@ -579,7 +593,7 @@ public class KmlExporter implements EventHandler {
 				}
 
 				// create reference to tile file in master file
-				if (masterFileWriter != null) {
+				if (masterFileWriter != null && !featureCounterMap.isEmpty()) {
 					try {
 						writeMasterFileTileReference(fileName, i, j, wgs84Tile, masterFileWriter);
 					} catch (JAXBException e) {
@@ -587,7 +601,7 @@ public class KmlExporter implements EventHandler {
 						return false;
 					}
 				}
-				
+
 				// fill JSON file after tile has been processed
 				BufferedWriter jsonWriter = isCreateOneJSONFilePerTile ? jsonTileFileWriter : jsonMasterFileWriter;
 				if (jsonWriter != null) {
@@ -614,6 +628,8 @@ public class KmlExporter implements EventHandler {
 						return false;
 					}
 				}
+
+				featureCounterMap.clear();
 			}
 		}
 
@@ -639,13 +655,11 @@ public class KmlExporter implements EventHandler {
 			}
 		}
 
-		eventDispatcher.triggerEvent(new StatusDialogMessage(Language.I18N.getString("export.dialog.finish.msg"), this));
-
 		// show exported features
-		if (!featureCounterMap.isEmpty()) {
+		if (!totalFeatureCounterMap.isEmpty()) {
 			Logger.getInstance().info("Exported CityGML features:");
-			for (CityGMLClass type : featureCounterMap.keySet())
-				Logger.getInstance().info(type + ": " + featureCounterMap.get(type));
+			for (CityGMLClass type : totalFeatureCounterMap.keySet())
+				Logger.getInstance().info(type + ": " + totalFeatureCounterMap.get(type));
 		}
 
 		Logger.getInstance().info("Processed geometry objects: " + geometryCounter);
@@ -1643,6 +1657,12 @@ public class KmlExporter implements EventHandler {
 					featureCounterMap.put(type, update);
 				else
 					featureCounterMap.put(type, counter + update);
+
+				counter = totalFeatureCounterMap.get(type);
+				if (counter == null)
+					totalFeatureCounterMap.put(type, update);
+				else
+					totalFeatureCounterMap.put(type, counter + update);
 			}
 		}
 		else if (e.getEventType() == EventType.GEOMETRY_COUNTER) {
