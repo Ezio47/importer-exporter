@@ -175,7 +175,7 @@ public class GeneralPanel extends AbstractPreferencesComponent {
 		GridBagConstraints vfl = GuiUtil.setConstraints(0,6,0.0,1.0,GridBagConstraints.NONE,BORDER_THICKNESS,BORDER_THICKNESS * 2,0,BORDER_THICKNESS);
 		vfl.anchor = GridBagConstraints.EAST;
 		generalPanel.add(visibleFromLabel, vfl);
-		generalPanel.add(visibleFromText, GuiUtil.setConstraints(1,5,1.0,1.0,GridBagConstraints.BOTH,BORDER_THICKNESS,BORDER_THICKNESS,0,BORDER_THICKNESS));
+		generalPanel.add(visibleFromText, GuiUtil.setConstraints(1,6,1.0,1.0,GridBagConstraints.BOTH,BORDER_THICKNESS,BORDER_THICKNESS,0,BORDER_THICKNESS));
 		GridBagConstraints pl = GuiUtil.setConstraints(2,6,0.0,1.0,GridBagConstraints.NONE,BORDER_THICKNESS,BORDER_THICKNESS,0,BORDER_THICKNESS);
 		pl.anchor = GridBagConstraints.WEST;
 		generalPanel.add(pixelsLabel, pl);
@@ -197,10 +197,9 @@ public class GeneralPanel extends AbstractPreferencesComponent {
 		sl.anchor = GridBagConstraints.WEST;
 		generalPanel.add(sLabel, sl);
 
-		int lmargin = (int)(tileJSONCheckbox.getPreferredSize().getWidth()) + 11;
 		generalPanel.add(writeJSONCheckbox, GuiUtil.setConstraints(0,9,0.0,1.0,GridBagConstraints.BOTH,BORDER_THICKNESS,BORDER_THICKNESS,0,0));
-		generalPanel.add(tileJSONCheckbox, GuiUtil.setConstraints(0,10,0.0,1.0,GridBagConstraints.WEST,GridBagConstraints.NONE,0,lmargin,0,1));
-		generalPanel.add(writeJSONPCheckbox, GuiUtil.setConstraints(0,11,0.0,1.0,GridBagConstraints.WEST,GridBagConstraints.NONE,0,lmargin,0,1));
+		generalPanel.add(tileJSONCheckbox, GuiUtil.setConstraints(0,10,0.0,1.0,GridBagConstraints.EAST,GridBagConstraints.NONE,0,0,0,1));
+		generalPanel.add(writeJSONPCheckbox, GuiUtil.setConstraints(0,11,0.0,1.0,GridBagConstraints.EAST,GridBagConstraints.NONE,0,0,0,1));
 		generalPanel.add(callbackNameJSONPLabel, GuiUtil.setConstraints(0,12,0.0,1.0,GridBagConstraints.EAST,GridBagConstraints.NONE,BORDER_THICKNESS,BORDER_THICKNESS,0,BORDER_THICKNESS));
 		generalPanel.add(callbackNameJSONPText, GuiUtil.setConstraints(1,12,1.0,0.0,GridBagConstraints.HORIZONTAL,BORDER_THICKNESS,BORDER_THICKNESS,0,BORDER_THICKNESS));
 
